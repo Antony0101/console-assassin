@@ -1,26 +1,50 @@
-// The module 'vscode' contains the VS Code extensibility API
-// Import the module and reference it with the alias vscode in your code below
-import * as vscode from 'vscode';
+import * as vscode from "vscode";
+import { spawn } from "child_process";
+import * as path from "path";
 
-// This method is called when your extension is activated
-// Your extension is activated the very first time the command is executed
 export function activate(context: vscode.ExtensionContext) {
+  console.log("in activate");
+  const outputChannel = vscode.window.createOutputChannel("Console Assassin");
 
-	// Use the console to output diagnostic information (console.log) and errors (console.error)
-	// This line of code will only be executed once when your extension is activated
-	console.log('Congratulations, your extension "console-assassin" is now active!');
+  const disposable = vscode.commands.registerCommand(
+    "consoleAssassin.run",
+    () => {
+      // Example target app (change this to your entry file)
 
-	// The command has been defined in the package.json file
-	// Now provide the implementation of the command with registerCommand
-	// The commandId parameter must match the command field in package.json
-	const disposable = vscode.commands.registerCommand('console-assassin.helloWorld', () => {
-		// The code you place here will be executed every time your command is executed
-		// Display a message box to the user
-		vscode.window.showInformationMessage('Hello World from console-assassin!');
-	});
+      const appPath = path.join(vscode.workspace.rootPath || "", "app.js");
+      const patchPath = path.join(
+        context.extensionPath,
+        "src",
+        "console-patch.js"
+      );
 
-	context.subscriptions.push(disposable);
+      const child = spawn("node", ["--require", patchPath, appPath], {
+        cwd: vscode.workspace.rootPath,
+        stdio: ["inherit", "inherit", "inherit", "ipc"],
+      });
+
+      child.on("message", (msg: any) => {
+        if (msg.type === "console") {
+          outputChannel.appendLine(
+            `[${msg.level.toUpperCase()}] ${msg.args.join(" ")}`
+          );
+        }
+      });
+
+      child.on("exit", (code) => {
+        outputChannel.appendLine(
+          `\n--- Process exited with code ${code} ---\n`
+        );
+      });
+
+      vscode.window.showInformationMessage(
+        "App started with Console Assassin!"
+      );
+      outputChannel.show(true);
+    }
+  );
+
+  context.subscriptions.push(disposable);
 }
 
-// This method is called when your extension is deactivated
 export function deactivate() {}

@@ -1,4 +1,5 @@
 const esbuild = require("esbuild");
+const isWSL = require("is-wsl");
 
 const production = process.argv.includes("--production");
 const watch = process.argv.includes("--watch");
@@ -42,27 +43,24 @@ async function main() {
       esbuildProblemMatcherPlugin,
     ],
   });
-  // default config
-  // if (watch) {
-  // 	await ctx.watch();
-  // } else {
-  // 	await ctx.rebuild();
-  // 	await ctx.dispose();
-  // }
+  //   default config
+  //   if (watch) {
+  //     await ctx.watch();
+  //   } else {
+  //     await ctx.rebuild();
+  //     await ctx.dispose();
+  //   }
 
-  // for wsl support
+  //   for wsl support
   if (watch) {
-    await ctx.watch({
-      onRebuild(error, result) {
-        if (error) {
-          console.error("✘ Rebuild failed:", error);
-        } else {
-          console.log("✅ Rebuild succeeded:", new Date().toLocaleTimeString());
-        }
-      },
-      usePolling: true,
-      interval: 500,
-    });
+    if (isWSL) {
+      console.log("⚠️  Running in WSL → using rebuild/dispose fallback");
+      await ctx.rebuild();
+      await ctx.dispose();
+    } else {
+      console.log("👀 Running in normal mode → enabling watch");
+      await ctx.watch();
+    }
   } else {
     await ctx.rebuild();
     await ctx.dispose();
